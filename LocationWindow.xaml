@@ -1,0 +1,41 @@
+﻿<Window x:Class="WeatherWidget.LocationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="지역 변경" Width="400" Height="420" Topmost="True"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        FontFamily="{StaticResource UiFont}" FontSize="14">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="CurrentText" Foreground="#666" Margin="0,0,0,8"/>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="QueryBox" Padding="6,4" VerticalContentAlignment="Center"/>
+            <Button x:Name="SearchButton" Grid.Column="1" Content="검색" Padding="16,4" Margin="8,0,0,0" Click="Search_Click" IsDefault="True"/>
+        </Grid>
+        <ListBox x:Name="ResultList" Grid.Row="2" Margin="0,10,0,10" MouseDoubleClick="ResultList_MouseDoubleClick">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Margin="2,3">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="#777"/>
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock x:Name="StatusText" Grid.Row="2" Foreground="#888" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Text="시/군/구 이름으로 검색하세요 (예: 수원, 해운대구)" TextWrapping="Wrap"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="선택" Padding="18,4" Click="Ok_Click"/>
+            <Button Content="취소" Padding="18,4" Margin="8,0,0,0" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
+
