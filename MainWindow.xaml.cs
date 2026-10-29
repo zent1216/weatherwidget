@@ -57,6 +57,8 @@ public partial class MainWindow : Window
         SetWindowLong(hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_TOOLWINDOW);
         HwndSource.FromHwnd(hwnd).AddHook(WndProc);
         SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        // 높이(SizeToContent)가 정해진 뒤 저장된 위치를 가장자리에 다시 맞춤
+        ContentRendered += (_, _) => SnapNow();
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -73,20 +75,32 @@ public partial class MainWindow : Window
         }
         else if (msg == WM_MOVING)
         {
-            SnapToWorkArea(hwnd, lParam);
+            var r = Marshal.PtrToStructure<RECT>(lParam);
+            if (SnapRect(ref r)) Marshal.StructureToPtr(r, lParam, false);
         }
         return IntPtr.Zero;
     }
 
     /// <summary>
-    /// 끄는 중에 화면(작업 영역) 가장자리 가까이 오면 자석처럼 딱 붙임.
+    /// 지금 위치를 가장자리에 맞춰 붙임. 끄는 도중에는 Windows가 창 위쪽이 화면 밖으로
+    /// 나가지 못하게 막아서(그림자 여백만큼 덜 붙음) 놓은 뒤·시작할 때 직접 다시 맞춘다.
+    /// </summary>
+    private void SnapNow()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out var r)) return;
+        if (SnapRect(ref r))
+            SetWindowPos(hwnd, IntPtr.Zero, r.Left, r.Top, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+
+    /// <summary>
+    /// 화면(작업 영역) 가장자리 가까이 있으면 자석처럼 딱 붙도록 r을 옮김. 옮겼으면 true.
     /// 창에는 그림자용 투명 여백이 있으므로 창 테두리가 아니라 보이는 패널 테두리를 맞춘다.
     /// </summary>
-    private void SnapToWorkArea(IntPtr hwnd, IntPtr lParam)
+    private bool SnapRect(ref RECT r)
     {
-        var r = Marshal.PtrToStructure<RECT>(lParam);
         var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
-        if (!GetMonitorInfo(MonitorFromRect(ref r, MONITOR_DEFAULTTONEAREST), ref mi)) return;
+        if (!GetMonitorInfo(MonitorFromRect(ref r, MONITOR_DEFAULTTONEAREST), ref mi)) return false;
         var wa = mi.rcWork;
 
         double scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
@@ -100,11 +114,11 @@ public partial class MainWindow : Window
         else if (Math.Abs(right - wa.Right) <= threshold) dx = wa.Right - right;
         if (Math.Abs(top - wa.Top) <= threshold) dy = wa.Top - top;
         else if (Math.Abs(bottom - wa.Bottom) <= threshold) dy = wa.Bottom - bottom;
-        if (dx == 0 && dy == 0) return;
+        if (dx == 0 && dy == 0) return false;
 
         r.Left += dx; r.Right = r.Left + w;
         r.Top += dy; r.Bottom = r.Top + h;
-        Marshal.StructureToPtr(r, lParam, false);
+        return true;
     }
 
     // ── 위치 ──
@@ -137,6 +151,7 @@ public partial class MainWindow : Window
             return;
         }
         DragMove();
+        SnapNow();
         _settings.Left = Left;
         _settings.Top = Top;
         _settings.Save();
@@ -459,6 +474,8 @@ public partial class MainWindow : Window
         public uint dwFlags;
     }
 
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromRect(ref RECT lprc, uint dwFlags);
     [DllImport("user32.dll")]
