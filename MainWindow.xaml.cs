@@ -98,6 +98,11 @@ public partial class MainWindow : Window
 
     private void RootPanel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.ClickCount == 2)
+        {
+            OpenDetails();
+            return;
+        }
         DragMove();
         _settings.Left = Left;
         _settings.Top = Top;
@@ -109,6 +114,10 @@ public partial class MainWindow : Window
     private void BuildContextMenu()
     {
         var menu = new ContextMenu();
+
+        var details = new MenuItem { Header = "자세히 보기 (네이버 날씨)", FontWeight = FontWeights.SemiBold };
+        details.Click += (_, _) => OpenDetails();
+        menu.Items.Add(details);
 
         var refresh = new MenuItem { Header = "새로고침" };
         refresh.Click += async (_, _) => await RefreshAsync();
@@ -167,6 +176,14 @@ public partial class MainWindow : Window
             foreach (MenuItem mi in daysMenu.Items) mi.IsChecked = (int)mi.Tag == _settings.ForecastDays;
         };
         RootPanel.ContextMenu = menu;
+    }
+
+    /// <summary>기본 브라우저로 네이버 "[지역명] 날씨" 검색 결과를 연다</summary>
+    private void OpenDetails()
+    {
+        string url = "https://search.naver.com/search.naver?query=" + Uri.EscapeDataString($"{_settings.LocationName} 날씨");
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show("브라우저를 열 수 없습니다: " + ex.Message, "날씨 위젯"); }
     }
 
     private void ApplyOpacity()
