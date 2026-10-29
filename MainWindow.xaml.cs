@@ -71,7 +71,40 @@ public partial class MainWindow : Window
                 Marshal.StructureToPtr(pos, lParam, false);
             }
         }
+        else if (msg == WM_MOVING)
+        {
+            SnapToWorkArea(hwnd, lParam);
+        }
         return IntPtr.Zero;
+    }
+
+    /// <summary>
+    /// 끄는 중에 화면(작업 영역) 가장자리 가까이 오면 자석처럼 딱 붙임.
+    /// 창에는 그림자용 투명 여백이 있으므로 창 테두리가 아니라 보이는 패널 테두리를 맞춘다.
+    /// </summary>
+    private void SnapToWorkArea(IntPtr hwnd, IntPtr lParam)
+    {
+        var r = Marshal.PtrToStructure<RECT>(lParam);
+        var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (!GetMonitorInfo(MonitorFromRect(ref r, MONITOR_DEFAULTTONEAREST), ref mi)) return;
+        var wa = mi.rcWork;
+
+        double scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        int inset = (int)Math.Round(RootPanel.Margin.Left * scale); // 그림자 여백
+        int threshold = (int)Math.Round(SnapDistance * scale);
+        int w = r.Right - r.Left, h = r.Bottom - r.Top;
+
+        int left = r.Left + inset, right = r.Right - inset, top = r.Top + inset, bottom = r.Bottom - inset;
+        int dx = 0, dy = 0;
+        if (Math.Abs(left - wa.Left) <= threshold) dx = wa.Left - left;
+        else if (Math.Abs(right - wa.Right) <= threshold) dx = wa.Right - right;
+        if (Math.Abs(top - wa.Top) <= threshold) dy = wa.Top - top;
+        else if (Math.Abs(bottom - wa.Bottom) <= threshold) dy = wa.Bottom - bottom;
+        if (dx == 0 && dy == 0) return;
+
+        r.Left += dx; r.Right = r.Left + w;
+        r.Top += dy; r.Bottom = r.Top + h;
+        Marshal.StructureToPtr(r, lParam, false);
     }
 
     // ── 위치 ──
@@ -411,6 +444,25 @@ public partial class MainWindow : Window
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_TOOLWINDOW = 0x80;
     private const int WM_WINDOWPOSCHANGING = 0x46;
+    private const int WM_MOVING = 0x216;
+    private const uint MONITOR_DEFAULTTONEAREST = 2;
+    private const double SnapDistance = 20; // 자석 붙는 거리 (DIP)
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int Left, Top, Right, Bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor, rcWork;
+        public uint dwFlags;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromRect(ref RECT lprc, uint dwFlags);
+    [DllImport("user32.dll")]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
     private const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10;
     private static readonly IntPtr HWND_BOTTOM = new(1);
 
